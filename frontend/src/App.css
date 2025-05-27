@@ -1,0 +1,81 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background-image:url('../public/pic\ 34.webp'); /* Replace with your confetti BG */
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.2);
+}
+
+.title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.form textarea,
+.form input[type="number"],
+.form input[type="file"] {
+  width: 100%;
+  margin: 0.5rem 0;
+  padding: 0.7rem;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+.section {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 15px;
+  color: #fff;
+}
+
+.section h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+}
+
+.orange { background: #ff7f50; }
+.blue   { background: #00bfff; }
+.green  { background: #32cd32; }
+.pink   { background: #ff69b4; }
+
+button {
+  padding: 0.7rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  background: #6a0dad;
+  color: white;
+  margin-top: 1rem;
+  display: block;
+}
+
+button:disabled {
+  background: gray;
+  cursor: not-allowed;
+}
+
+.download {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.download a {
+  font-size: 1.2rem;
+  color: #1e90ff;
+  text-decoration: none;
+  font-weight: bold;
+}
