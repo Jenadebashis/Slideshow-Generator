@@ -31,7 +31,7 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
             x_center=img_clip.w / 2, y_center=img_clip.h / 2
         ).set_duration(duration_per_slide)
 
-        img_clip = colorx(img_clip, 0.4)  # Darken image for text focus
+        img_clip = colorx(img_clip, 0.6)  # Darken image for text focus
 
         txt_clip = TextClip(text, fontsize=40, color='white', size=size, method='caption') \
             .set_duration(duration_per_slide) \
