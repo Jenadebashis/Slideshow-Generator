@@ -63,9 +63,6 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
             print(f"❗ Slide {i}: Image processing failed. Error: {e}")
             continue
 
-        debug_rect = ColorClip(size=(size[0], 4), color=(255, 0, 0)) \
-            .set_position(("center", y_pos)) \
-            .set_duration(duration_per_slide)
         slide = CompositeVideoClip([img_clip, txt_clip], size=size)
         slides.append(slide)
         print(f"✅ Slide {i} composed successfully.\n")
