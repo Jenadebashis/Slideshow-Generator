@@ -13,6 +13,7 @@ def create_slideshow(request):
         print("🔄 [START] Received POST request to create slideshow.")
 
         texts = request.data.getlist('texts')
+        positions = request.data.getlist('positions')  # Same length as texts
         duration = int(request.data.get('duration', 4))
         images = request.FILES.getlist('images')
         music = request.FILES.get('music')
@@ -40,7 +41,7 @@ def create_slideshow(request):
 
         output_path = os.path.join(settings.MEDIA_ROOT, "final_video.mp4")
         print("⚙️ Calling generate_video function...")
-        generate_video(texts, image_paths, music_path, output_path, duration_per_slide=duration)
+        generate_video(texts, image_paths, music_path, output_path, duration_per_slide=duration, positions=positions)
 
         if not os.path.exists(output_path):
             print("❌ Video file was not created!")
@@ -49,7 +50,9 @@ def create_slideshow(request):
         print(f"📦 Video generated successfully: {output_path}")
         print("📤 Sending FileResponse with video...")
 
-        return FileResponse(open(output_path, 'rb'), as_attachment=True, filename="slideshow.mp4", content_type='video/mp4')
+        filename = f"{texts[0][:20].strip().replace(' ', '_')}.mp4"
+        print(f"📦 filename generated successfully: {filename}")
+        return FileResponse(open(output_path, 'rb'), as_attachment=True, filename=filename, content_type='video/mp4')
 
     except Exception as e:
         import traceback
