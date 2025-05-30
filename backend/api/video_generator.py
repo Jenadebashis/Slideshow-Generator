@@ -18,7 +18,7 @@ def apply_image_transition(clip1, clip2, duration=1):
         clip2.crossfadein(duration)
     ], method="compose")
 
-def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None):
+def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None, darkening=0.4):
     if positions is None:
         positions = []
     slides = []
@@ -27,6 +27,7 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
     print(f"Number of texts: {len(texts)}")
     print(f"Number of image paths: {len(image_paths)}")
     print(f"Positions received: {positions}")
+    print(f"🌓 Darkening level applied to images: {darkening}\n")
 
     for i, text in enumerate(texts):
         image_path = image_paths[i % len(image_paths)]
@@ -58,7 +59,8 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
             img_clip = ImageClip(image_path).resize(height=size[1])
             img_clip = img_clip.crop(width=size[0], height=size[1], x_center=img_clip.w / 2, y_center=img_clip.h / 2)
             img_clip = img_clip.set_duration(duration_per_slide)
-            img_clip = colorx(img_clip, 0.4)
+            img_clip = colorx(img_clip, darkening)
+            print(f"🖼 Slide {i}: Image darkened by factor {darkening}")
         except Exception as e:
             print(f"❗ Slide {i}: Image processing failed. Error: {e}")
             continue
