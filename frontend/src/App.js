@@ -3,26 +3,27 @@ import axios from 'axios';
 import './App.css';
 
 function App() {
-  const [texts, setTexts] = useState(['']);
   const [images, setImages] = useState([]);
   const [music, setMusic] = useState(null);
   const [duration, setDuration] = useState(4);
   const [loading, setLoading] = useState(false);
+  const [slides, setSlides] = useState([{ text: '', position: '' }]);
 
-  const handleTextChange = (index, value) => {
-    const newTexts = [...texts];
-    newTexts[index] = value;
-    setTexts(newTexts);
+  const handleSlideChange = (index, field, value) => {
+    const updated = [...slides];
+    updated[index][field] = value;
+    setSlides(updated);
   };
-
-  const addTextField = () => setTexts([...texts, '']);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     const formData = new FormData();
-    texts.forEach(text => formData.append('texts', text));
+    slides.forEach(slide => {
+      formData.append('texts', slide.text);
+      formData.append('positions', slide.position); // May be blank
+    });
     images.forEach(img => formData.append('images', img));
     if (music) formData.append('music', music);
     formData.append('duration', duration);
@@ -57,16 +58,25 @@ function App() {
       <form onSubmit={handleSubmit} className="form">
         <div className="section orange">
           <h2>Slide Texts</h2>
-          {texts.map((text, i) => (
-            <textarea
-              key={i}
-              placeholder={`Slide Text ${i + 1}`}
-              value={text}
-              onChange={(e) => handleTextChange(i, e.target.value)}
-              rows={3}
-            />
+          {slides.map((slide, i) => (
+            <div key={i} style={{ marginBottom: '1rem' }}>
+              <textarea
+                placeholder={`Slide Text ${i + 1}`}
+                value={slide.text}
+                onChange={(e) => handleSlideChange(i, 'text', e.target.value)}
+                rows={3}
+              />
+              <input
+                type="number"
+                placeholder="Vertical % (0–100, optional)"
+                value={slide.position}
+                onChange={(e) => handleSlideChange(i, 'position', e.target.value)}
+              />
+            </div>
           ))}
-          <button type="button" onClick={addTextField}>➕ Add Another Slide</button>
+          <button type="button" onClick={() => setSlides([...slides, { text: '', position: '' }])}>
+            ➕ Add Another Slide
+          </button>
         </div>
 
         <div className="section blue">

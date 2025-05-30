@@ -18,27 +18,57 @@ def apply_image_transition(clip1, clip2, duration=1):
         clip2.crossfadein(duration)
     ], method="compose")
 
-def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280)):
+def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None):
+    if positions is None:
+        positions = []
     slides = []
+
+    print("🟡 Debug Info:")
+    print(f"Number of texts: {len(texts)}")
+    print(f"Number of image paths: {len(image_paths)}")
+    print(f"Positions received: {positions}")
 
     for i, text in enumerate(texts):
         image_path = image_paths[i % len(image_paths)]
+        position_percent = positions[i] if i < len(positions) and positions[i].strip() else None
 
-        # Resize to fill height, then crop to center width
-        img_clip = ImageClip(image_path).resize(height=size[1])
-        img_clip = img_clip.crop(
-            width=size[0], height=size[1],
-            x_center=img_clip.w / 2, y_center=img_clip.h / 2
-        ).set_duration(duration_per_slide)
+        try:
+            percent = float(position_percent)
+            y_pos = int(size[1] * percent / 100.0)
+            y_pos = max(40, min(y_pos, size[1] - 100))  # Clamp
+            text_position = ('center', y_pos)
+        except Exception as e:
+            print(f"Invalid position: {e}")
+            text_position = 'center'
+        try: 
+            txt_clip = TextClip(
+                text,
+                fontsize=40,
+                color='white',
+                font="Arial",  # or your font path
+                method='caption',
+                size=(size[0] - 100, None),
+                align='center'
+            ).set_duration(duration_per_slide).set_position(text_position)
+        except Exception as e:
+            print(f"❗ Slide {i}: TextClip creation failed. Error: {e}")
+            continue  # Skip this slide if text rendering fails
 
-        img_clip = colorx(img_clip, 0.6)  # Darken image for text focus
+        try:
+            img_clip = ImageClip(image_path).resize(height=size[1])
+            img_clip = img_clip.crop(width=size[0], height=size[1], x_center=img_clip.w / 2, y_center=img_clip.h / 2)
+            img_clip = img_clip.set_duration(duration_per_slide)
+            img_clip = colorx(img_clip, 0.4)
+        except Exception as e:
+            print(f"❗ Slide {i}: Image processing failed. Error: {e}")
+            continue
 
-        txt_clip = TextClip(text, fontsize=40, color='white', size=size, method='caption') \
-            .set_duration(duration_per_slide) \
-            .set_position('center')
-
+        debug_rect = ColorClip(size=(size[0], 4), color=(255, 0, 0)) \
+            .set_position(("center", y_pos)) \
+            .set_duration(duration_per_slide)
         slide = CompositeVideoClip([img_clip, txt_clip], size=size)
         slides.append(slide)
+        print(f"✅ Slide {i} composed successfully.\n")
 
     if not slides:
         raise ValueError("No slides generated: check texts and image paths.")
@@ -48,8 +78,11 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
         final_video = apply_image_transition(final_video, slides[i], duration=0.3)
 
     if music_path:
-        audio = AudioFileClip(music_path)
-        final_video = final_video.set_audio(audio_loop(audio, duration=final_video.duration))
+        try:
+            audio = AudioFileClip(music_path)
+            final_video = final_video.set_audio(audio_loop(audio, duration=final_video.duration))
+        except Exception as e:
+            print(f"❗ Audio Error: {e}")
 
     try:
         final_video.write_videofile(
@@ -60,6 +93,7 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
             threads=4,
             logger=None
         )
+        print("🎬 Video written successfully.")
     finally:
         if hasattr(final_video.audio, 'close'):
             try:
