@@ -16,7 +16,17 @@ def create_slideshow(request):
         positions = request.data.getlist('positions')  # Same length as texts
         duration = int(request.data.get('duration', 4))
         images = request.FILES.getlist('images')
-        darkening = float(request.data.get('darkening')) 
+        raw_darkening = request.data.getlist('darkening')
+        if len(raw_darkening) == 1:
+            try:
+                darkening = float(raw_darkening[0])
+            except ValueError:
+                darkening = 0.4  # fallback default
+        else:
+            try:
+                darkening = [float(d) for d in raw_darkening]
+            except ValueError:
+                darkening = [0.4] * len(texts)
         music = request.FILES.get('music')
 
         print(f"📝 Texts received: {len(texts)}")
