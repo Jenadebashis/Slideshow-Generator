@@ -18,7 +18,7 @@ def apply_image_transition(clip1, clip2, duration=1):
         clip2.crossfadein(duration)
     ], method="compose")
 
-def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None, darkening=None):
+def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None, durations=None, darkening=None):
     if positions is None:
         positions = []
     slides = []
@@ -32,6 +32,8 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
     for i, text in enumerate(texts):
         image_path = image_paths[i % len(image_paths)]
         position_percent = positions[i] if i < len(positions) and positions[i].strip() else None
+        slide_duration = durations[i] if durations and i < len(durations) else duration_per_slide
+
 
         try:
             percent = float(position_percent)
@@ -50,7 +52,7 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
                 method='caption',
                 size=(size[0] - 100, None),
                 align='center'
-            ).set_duration(duration_per_slide).set_position(text_position)
+            ).set_duration(slide_duration).set_position(text_position)
         except Exception as e:
             print(f"❗ Slide {i}: TextClip creation failed. Error: {e}")
             continue  # Skip this slide if text rendering fails
@@ -66,9 +68,9 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
         try:
             img_clip = ImageClip(image_path).resize(height=size[1])
             img_clip = img_clip.crop(width=size[0], height=size[1], x_center=img_clip.w / 2, y_center=img_clip.h / 2)
-            img_clip = img_clip.set_duration(duration_per_slide)
+            img_clip = img_clip.set_duration(slide_duration)
             img_clip = colorx(img_clip, darken_value)
-            print(f"🖼 Slide {i}: Image darkened by factor {darken_value}")
+            print(f"🖼 Slide {i}: Image darkened by factor {darken_value} and duration {slide_duration}")
         except Exception as e:
             print(f"❗ Slide {i}: Image processing failed. Error: {e}")
             continue

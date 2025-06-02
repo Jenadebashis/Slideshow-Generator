@@ -7,7 +7,7 @@ function App() {
   const [music, setMusic] = useState(null);
   const [duration, setDuration] = useState(4);
   const [loading, setLoading] = useState(false);
-  const [slides, setSlides] = useState([{ text: '', position: '', darkening: '' }]);
+  const [slides, setSlides] = useState([{ text: '', position: '', darkening: '', duration: '' }]);
 
   const handleSlideChange = (index, field, value) => {
     const updated = [...slides];
@@ -23,7 +23,8 @@ function App() {
     slides.forEach(slide => {
       formData.append('texts', slide.text);
       formData.append('positions', slide.position);
-      formData.append('darkening', slide.darkening); // May be blank
+      formData.append('darkening', slide.darkening);
+      formData.append('duration', slide.duration); // May be blank
     });
     images.forEach(img => formData.append('images', img));
     if (music) formData.append('music', music);
@@ -82,9 +83,15 @@ function App() {
                 onChange={(e) => handleSlideChange(i, 'darkening', e.target.value)}
                 placeholder="Darkening Level (0 to 1)"
               />
+              <input
+                type="number"
+                placeholder="Duration (seconds)"
+                value={slide.duration}
+                onChange={(e) => handleSlideChange(i, 'duration', e.target.value)}
+              />
             </div>
           ))}
-          <button type="button" onClick={() => setSlides([...slides, { text: '', position: '', darkening: '' }])}>
+          <button type="button" onClick={() => setSlides([...slides, { text: '', position: '', darkening: '', duration: '' }])}>
             ➕ Add Another Slide
           </button>
         </div>

@@ -14,26 +14,33 @@ def create_slideshow(request):
 
         texts = request.data.getlist('texts')
         positions = request.data.getlist('positions')  # Same length as texts
-        duration = int(request.data.get('duration', 4))
+        durations = request.data.getlist('duration')
+        durations = [float(d) if d else 4.0 for d in durations]
         images = request.FILES.getlist('images')
         raw_darkening = request.data.getlist('darkening')
+        print(f"📝 darkening received: {raw_darkening}")
+
         if len(raw_darkening) == 1:
             try:
                 darkening = float(raw_darkening[0])
             except ValueError:
                 darkening = 0.4  # fallback default
         else:
-            try:
-                darkening = [float(d) for d in raw_darkening]
-            except ValueError:
-                darkening = [0.4] * len(texts)
+            darkening = []
+            for d in raw_darkening:
+                try:
+                    darkening.append(float(d))
+                except ValueError:
+                    darkening.append(0.4)  # default for invalid/missing values
+
+        print(f"📝 darkening become: {darkening}")
+
         music = request.FILES.get('music')
 
         print(f"📝 Texts received: {len(texts)}")
         print(f"🖼 Images received: {len(images)}")
         print(f"🎵 Music file received: {'Yes' if music else 'No'}")
-        print(f"⏱ Duration per slide: {duration} seconds")
-
+        print(f"⏱ Duration per slide: {durations} seconds")
         if not texts or not images:
             print("❌ Missing texts or images.")
             return Response({"error": "Texts and images are required."}, status=400)
@@ -52,7 +59,7 @@ def create_slideshow(request):
 
         output_path = os.path.join(settings.MEDIA_ROOT, "final_video.mp4")
         print("⚙️ Calling generate_video function...")
-        generate_video(texts, image_paths, music_path, output_path, duration_per_slide=duration, positions=positions, darkening=darkening)
+        generate_video(texts, image_paths, music_path, output_path, positions=positions, durations=durations, darkening=darkening)
 
         if not os.path.exists(output_path):
             print("❌ Video file was not created!")
