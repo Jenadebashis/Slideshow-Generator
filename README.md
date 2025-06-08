@@ -35,4 +35,32 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-Set the `IMAGEMAGICK_BINARY` environment variable if ImageMagick isn't in your `PATH`.
+Set the `IMAGEMAGICK_BINARY` environment variable if ImageMagick isn't in your `PATH`. MoviePy relies on this tool for rendering text, so missing or misconfigured paths will cause errors like `MoviePy Error: creation of None failed`.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+### Running Tests
+
+Backend tests require the dependencies from `requirements.txt`:
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python manage.py test
+```
+
+The frontend tests rely on `react-scripts`, installed via `npm install`:
+
+```bash
+cd frontend
+npm test
+```
+
