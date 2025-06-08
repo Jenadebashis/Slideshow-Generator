@@ -7,6 +7,7 @@ from moviepy.video.fx.fadeout import fadeout
 from moviepy.video.fx.colorx import colorx
 from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
+from moviepy.video.fx import all as vfx
 
 # Allow overriding the ImageMagick binary location via environment variable
 im_path = os.getenv("IMAGEMAGICK_BINARY")
@@ -68,7 +69,7 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
                 return x_final, y_final
 
         return clip.set_position(pos)
-
+      
     if transition == "zoom":
         def resize(t):
             if t < duration:
