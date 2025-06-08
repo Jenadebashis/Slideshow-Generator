@@ -9,9 +9,10 @@ from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
 from moviepy.video.fx import all as vfx
 
-change_settings({
-    "IMAGEMAGICK_BINARY": r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"
-})
+# Allow overriding the ImageMagick binary location via environment variable
+im_path = os.getenv("IMAGEMAGICK_BINARY")
+if im_path:
+    change_settings({"IMAGEMAGICK_BINARY": im_path})
 
 TRANSITION_DURATION = 0.3  # seconds for crossfades and text fades
 
@@ -24,14 +25,51 @@ TEXT_TRANSITIONS = [
     "zoom",
 ]
 
-def apply_text_transition(clip, transition, duration):
+def apply_text_transition(clip, transition, duration, final_pos, video_size):
     """Apply one of several animation effects to a text clip."""
     if transition == "fade":
-        return clip.fx(fadein, duration).fx(fadeout, duration)
+        return clip.set_position(final_pos).fx(fadein, duration).fx(fadeout, duration)
+
     if transition.startswith("slide_"):
         side = transition.split("_")[1]
-        clip = clip.fx(vfx.slide_in, duration, side=side)
-        return clip.fx(vfx.slide_out, duration, side=side)
+        vw, vh = video_size
+        x_final, y_final = final_pos if isinstance(final_pos, tuple) else ("center", "center")
+        if x_final == "center":
+            x_final = (vw - clip.w) // 2
+        if y_final == "center":
+            y_final = (vh - clip.h) // 2
+
+        start_map = {
+            "left": (-clip.w, y_final),
+            "right": (vw, y_final),
+            "top": (x_final, -clip.h),
+            "bottom": (x_final, vh),
+        }
+        start_pos = start_map.get(side, (x_final, y_final))
+        end_map = {
+            "left": (-clip.w, y_final),
+            "right": (vw, y_final),
+            "top": (x_final, -clip.h),
+            "bottom": (x_final, vh),
+        }
+        end_pos = end_map.get(side, (x_final, y_final))
+
+        def pos(t):
+            if t < duration:
+                p = t / duration
+                x = start_pos[0] + (x_final - start_pos[0]) * p
+                y = start_pos[1] + (y_final - start_pos[1]) * p
+                return x, y
+            elif t > clip.duration - duration:
+                p = (t - (clip.duration - duration)) / duration
+                x = x_final + (end_pos[0] - x_final) * p
+                y = y_final + (end_pos[1] - y_final) * p
+                return x, y
+            else:
+                return x_final, y_final
+
+        return clip.set_position(pos)
+      
     if transition == "zoom":
         def resize(t):
             if t < duration:
@@ -39,9 +77,11 @@ def apply_text_transition(clip, transition, duration):
             if t > clip.duration - duration:
                 return 0.3 + 0.7 * (max(clip.duration - t, 0) / duration)
             return 1.0
-        return clip.resize(resize)
+
+        return clip.set_position(final_pos).resize(resize)
+
     # Fallback
-    return clip
+    return clip.set_position(final_pos)
 
 def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
     return concatenate_videoclips([
@@ -89,9 +129,14 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
                     align='center'
                 )
                 .set_duration(slide_duration)
-                .set_position(text_position)
             )
-            txt_clip = apply_text_transition(txt_clip, transition_name, TRANSITION_DURATION)
+            txt_clip = apply_text_transition(
+                txt_clip,
+                transition_name,
+                TRANSITION_DURATION,
+                text_position,
+                size,
+            )
             print(f"💫 Slide {i}: Text transition '{transition_name}' applied.")
         except Exception as e:
             print(f"❗ Slide {i}: TextClip creation failed. Error: {e}")
