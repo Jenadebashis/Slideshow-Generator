@@ -57,8 +57,10 @@ def create_slideshow(request):
             music_path = os.path.join(settings.MEDIA_ROOT, default_storage.save(f"media/{music.name}", ContentFile(music.read())))
             print(f"🎶 Music saved: {music_path}")
 
-        output_path = os.path.join(settings.MEDIA_ROOT, "final_video.mp4")
-        print("⚙️ Calling generate_video function...")
+        import uuid
+        unique_name = f"{uuid.uuid4().hex}.mp4"
+        output_path = os.path.join(settings.MEDIA_ROOT, unique_name)
+        print(f"⚙️ Calling generate_video function... output: {output_path}")
         generate_video(texts, image_paths, music_path, output_path, positions=positions, durations=durations, darkening=darkening)
 
         if not os.path.exists(output_path):
