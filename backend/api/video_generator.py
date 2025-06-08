@@ -16,8 +16,6 @@ from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
 from shutil import which
 
-from shutil import which
-
 # Allow overriding the ImageMagick binary location via environment variable
 im_path = os.getenv("IMAGEMAGICK_BINARY")
 if not im_path:
@@ -64,10 +62,10 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
         }
         start_pos = start_map.get(side, (x_final, y_final))
         end_map = {
-            "left": (-clip.w, y_final),
-            "right": (vw, y_final),
-            "top": (x_final, -clip.h),
-            "bottom": (x_final, vh),
+            "left": (vw, y_final),
+            "right": (-clip.w, y_final),
+            "top": (x_final, vh),
+            "bottom": (x_final, -clip.h),
         }
         end_pos = end_map.get(side, (x_final, y_final))
 
