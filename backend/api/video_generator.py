@@ -124,15 +124,18 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
     return clip.set_position(base_pos)
 
 def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
-    return concatenate_videoclips([
-        clip1.crossfadeout(duration),
-        clip2.crossfadein(duration)
-    ], method="compose")
+    """Crossfade two clips without affecting their original durations."""
+    return concatenate_videoclips(
+        [clip1.crossfadeout(duration), clip2.crossfadein(duration)],
+        method="compose",
+    )
 
 def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None, durations=None, darkening=None):
     if positions is None:
         positions = []
-    slides = []
+    image_clips = []
+    text_clips = []
+    slide_durations = []
 
     print("🟡 Debug Info:")
     print(f"Number of texts: {len(texts)}")
@@ -200,16 +203,27 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
             print(f"❗ Slide {i}: Image processing failed. Error: {e}")
             continue
 
-        slide = CompositeVideoClip([img_clip, txt_clip], size=size)
-        slides.append(slide)
-        print(f"✅ Slide {i} composed successfully.\n")
+        image_clips.append(img_clip)
+        text_clips.append(txt_clip)
+        slide_durations.append(slide_duration)
+        print(f"✅ Slide {i} prepared successfully.\n")
 
-    if not slides:
+    if not image_clips:
         raise ValueError("No slides generated: check texts and image paths.")
 
-    final_video = slides[0]
-    for i in range(1, len(slides)):
-        final_video = apply_image_transition(final_video, slides[i], duration=TRANSITION_DURATION)
+    # Build the base video by crossfading only the images
+    final_video = image_clips[0]
+    for i in range(1, len(image_clips)):
+        final_video = apply_image_transition(final_video, image_clips[i], duration=TRANSITION_DURATION)
+
+    # Calculate start times for overlaying text clips
+    start_times = [0]
+    for dur in slide_durations[:-1]:
+        start_times.append(start_times[-1] + dur - TRANSITION_DURATION)
+
+    # Overlay text clips at their corresponding start times
+    overlays = [final_video] + [t.set_start(s) for t, s in zip(text_clips, start_times)]
+    final_video = CompositeVideoClip(overlays, size=size)
 
     if music_path:
         try:
