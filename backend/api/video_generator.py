@@ -1,18 +1,132 @@
 import os
 import random
 import gc
-from moviepy.editor import *
+from moviepy.editor import (
+    TextClip,
+    ImageClip,
+    CompositeVideoClip,
+    concatenate_videoclips,
+    AudioFileClip,
+)
 from moviepy.video.fx.fadein import fadein
 from moviepy.video.fx.fadeout import fadeout
 from moviepy.video.fx.colorx import colorx
+from moviepy.video.fx.crop import crop
 from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
+from shutil import which
 
-change_settings({
-    "IMAGEMAGICK_BINARY": r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"
-})
+# Allow overriding the ImageMagick binary location via environment variable
+im_path = os.getenv("IMAGEMAGICK_BINARY")
+if not im_path:
+    im_path = which("magick") or which("convert")
+if im_path:
+    change_settings({"IMAGEMAGICK_BINARY": im_path})
+else:
+    print("⚠️ ImageMagick not found. Set IMAGEMAGICK_BINARY or install it to render text.")
 
-def apply_image_transition(clip1, clip2, duration=1):
+TRANSITION_DURATION = 0.3  # seconds for crossfades and text fades
+
+TEXT_TRANSITIONS = [
+    "fade",
+    "slide_left",
+    "slide_right",
+    "slide_top",
+    "slide_bottom",
+    "zoom",
+    "typewriter",
+    "glitch",
+    "rotate",
+]
+
+def apply_text_transition(clip, transition, duration, final_pos, video_size):
+    """Apply one of several animation effects to a text clip."""
+    vw, vh = video_size
+    x_final, y_final = final_pos if isinstance(final_pos, tuple) else ("center", "center")
+    if x_final == "center":
+        x_final = (vw - clip.w) // 2
+    if y_final == "center":
+        y_final = (vh - clip.h) // 2
+    base_pos = (x_final, y_final)
+
+    if transition == "fade":
+        return clip.set_position(base_pos).fx(fadein, duration).fx(fadeout, duration)
+
+    if transition.startswith("slide_"):
+        side = transition.split("_")[1]
+
+        start_map = {
+            "left": (-clip.w, y_final),
+            "right": (vw, y_final),
+            "top": (x_final, -clip.h),
+            "bottom": (x_final, vh),
+        }
+        start_pos = start_map.get(side, (x_final, y_final))
+        end_map = {
+            "left": (-clip.w, y_final),
+            "right": (vw, y_final),
+            "top": (x_final, -clip.h),
+            "bottom": (x_final, vh),
+        }
+        end_pos = end_map.get(side, (x_final, y_final))
+
+        def pos(t):
+            if t < duration:
+                p = t / duration
+                x = start_pos[0] + (x_final - start_pos[0]) * p
+                y = start_pos[1] + (y_final - start_pos[1]) * p
+                return x, y
+            elif t > clip.duration - duration:
+                p = (t - (clip.duration - duration)) / duration
+                x = x_final + (end_pos[0] - x_final) * p
+                y = y_final + (end_pos[1] - y_final) * p
+                return x, y
+            else:
+                return x_final, y_final
+
+        return clip.set_position(pos)
+
+    if transition == "zoom":
+        def resize(t):
+            if t < duration:
+                return 0.3 + 0.7 * (t / duration)
+            if t > clip.duration - duration:
+                return 0.3 + 0.7 * (max(clip.duration - t, 0) / duration)
+            return 1.0
+
+        return clip.set_position(base_pos).resize(resize)
+
+    if transition == "typewriter":
+        return (
+            clip.set_position(base_pos)
+            .fx(crop, x2=lambda t: clip.w * min(1, t / clip.duration))
+            .fx(fadein, duration)
+            .fx(fadeout, duration)
+        )
+
+    if transition == "glitch":
+        def pos(t):
+            if t < duration or t > clip.duration - duration:
+                jitter = random.randint(-10, 10)
+                return base_pos[0] + jitter, base_pos[1] + jitter
+            return base_pos
+
+        return clip.set_position(pos)
+
+    if transition == "rotate":
+        def rotation(t):
+            if t < duration:
+                return -15 + 15 * (t / duration)
+            if t > clip.duration - duration:
+                return 15 * ((clip.duration - t) / duration)
+            return 0
+
+        return clip.set_position(base_pos).rotate(rotation)
+
+    # Fallback
+    return clip.set_position(base_pos)
+
+def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
     return concatenate_videoclips([
         clip1.crossfadeout(duration),
         clip2.crossfadein(duration)
@@ -28,6 +142,8 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
     print(f"Number of image paths: {len(image_paths)}")
     print(f"Positions received: {positions}")
     print(f"🌓 Darkening level applied to images: {darkening}\n")
+    available_transitions = TEXT_TRANSITIONS.copy()
+    random.shuffle(available_transitions)
 
     for i, text in enumerate(texts):
         image_path = image_paths[i % len(image_paths)]
@@ -43,16 +159,28 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
         except Exception as e:
             print(f"Invalid position: {e}")
             text_position = 'center'
-        try: 
-            txt_clip = TextClip(
-                text,
-                fontsize=40,
-                color='white',
-                font="Arial",  # or your font path
-                method='caption',
-                size=(size[0] - 100, None),
-                align='center'
-            ).set_duration(slide_duration).set_position(text_position)
+        try:
+            transition_name = available_transitions.pop() if available_transitions else random.choice(TEXT_TRANSITIONS)
+            txt_clip = (
+                TextClip(
+                    text,
+                    fontsize=40,
+                    color='white',
+                    font="Arial",  # or your font path
+                    method='caption',
+                    size=(size[0] - 100, None),
+                    align='center'
+                )
+                .set_duration(slide_duration)
+            )
+            txt_clip = apply_text_transition(
+                txt_clip,
+                transition_name,
+                TRANSITION_DURATION,
+                text_position,
+                size,
+            )
+            print(f"💫 Slide {i}: Text transition '{transition_name}' applied.")
         except Exception as e:
             print(f"❗ Slide {i}: TextClip creation failed. Error: {e}")
             continue  # Skip this slide if text rendering fails
@@ -84,7 +212,7 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
 
     final_video = slides[0]
     for i in range(1, len(slides)):
-        final_video = apply_image_transition(final_video, slides[i], duration=0.3)
+        final_video = apply_image_transition(final_video, slides[i], duration=TRANSITION_DURATION)
 
     if music_path:
         try:
