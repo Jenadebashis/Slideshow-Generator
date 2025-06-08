@@ -16,6 +16,8 @@ from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
 from shutil import which
 
+from shutil import which
+
 # Allow overriding the ImageMagick binary location via environment variable
 im_path = os.getenv("IMAGEMAGICK_BINARY")
 if not im_path:
@@ -54,7 +56,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
 
     if transition.startswith("slide_"):
         side = transition.split("_")[1]
-
         start_map = {
             "left": (-clip.w, y_final),
             "right": (vw, y_final),
@@ -85,7 +86,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
                 return x_final, y_final
 
         return clip.set_position(pos)
-
     if transition == "zoom":
         def resize(t):
             if t < duration:
@@ -93,7 +93,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
             if t > clip.duration - duration:
                 return 0.3 + 0.7 * (max(clip.duration - t, 0) / duration)
             return 1.0
-
         return clip.set_position(base_pos).resize(resize)
 
     if transition == "typewriter":
