@@ -1,12 +1,20 @@
 import os
 import random
 import gc
-from moviepy.editor import *
+from moviepy.editor import (
+    TextClip,
+    ImageClip,
+    CompositeVideoClip,
+    concatenate_videoclips,
+    AudioFileClip,
+)
 from moviepy.video.fx.fadein import fadein
 from moviepy.video.fx.fadeout import fadeout
 from moviepy.video.fx.colorx import colorx
+from moviepy.video.fx.crop import crop
 from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
+from shutil import which
 
 from shutil import which
 
@@ -19,7 +27,6 @@ if im_path:
 else:
     print("⚠️ ImageMagick not found. Set IMAGEMAGICK_BINARY or install it to render text.")
 
-
 TRANSITION_DURATION = 0.3  # seconds for crossfades and text fades
 
 TEXT_TRANSITIONS = [
@@ -29,22 +36,26 @@ TEXT_TRANSITIONS = [
     "slide_top",
     "slide_bottom",
     "zoom",
+    "typewriter",
+    "glitch",
+    "rotate",
 ]
 
 def apply_text_transition(clip, transition, duration, final_pos, video_size):
     """Apply one of several animation effects to a text clip."""
+    vw, vh = video_size
+    x_final, y_final = final_pos if isinstance(final_pos, tuple) else ("center", "center")
+    if x_final == "center":
+        x_final = (vw - clip.w) // 2
+    if y_final == "center":
+        y_final = (vh - clip.h) // 2
+    base_pos = (x_final, y_final)
+
     if transition == "fade":
-        return clip.set_position(final_pos).fx(fadein, duration).fx(fadeout, duration)
+        return clip.set_position(base_pos).fx(fadein, duration).fx(fadeout, duration)
 
     if transition.startswith("slide_"):
         side = transition.split("_")[1]
-        vw, vh = video_size
-        x_final, y_final = final_pos if isinstance(final_pos, tuple) else ("center", "center")
-        if x_final == "center":
-            x_final = (vw - clip.w) // 2
-        if y_final == "center":
-            y_final = (vh - clip.h) // 2
-
         start_map = {
             "left": (-clip.w, y_final),
             "right": (vw, y_final),
@@ -82,11 +93,37 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
             if t > clip.duration - duration:
                 return 0.3 + 0.7 * (max(clip.duration - t, 0) / duration)
             return 1.0
+        return clip.set_position(base_pos).resize(resize)
 
-        return clip.set_position(final_pos).resize(resize)
+    if transition == "typewriter":
+        return (
+            clip.set_position(base_pos)
+            .fx(crop, x2=lambda t: clip.w * min(1, t / clip.duration))
+            .fx(fadein, duration)
+            .fx(fadeout, duration)
+        )
+
+    if transition == "glitch":
+        def pos(t):
+            if t < duration or t > clip.duration - duration:
+                jitter = random.randint(-10, 10)
+                return base_pos[0] + jitter, base_pos[1] + jitter
+            return base_pos
+
+        return clip.set_position(pos)
+
+    if transition == "rotate":
+        def rotation(t):
+            if t < duration:
+                return -15 + 15 * (t / duration)
+            if t > clip.duration - duration:
+                return 15 * ((clip.duration - t) / duration)
+            return 0
+
+        return clip.set_position(base_pos).rotate(rotation)
 
     # Fallback
-    return clip.set_position(final_pos)
+    return clip.set_position(base_pos)
 
 def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
     return concatenate_videoclips([
