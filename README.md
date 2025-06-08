@@ -63,3 +63,4 @@ The frontend tests rely on `react-scripts`, installed via `npm install`:
 cd frontend
 npm test
 ```
+

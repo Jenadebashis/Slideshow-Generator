@@ -7,6 +7,7 @@ from moviepy.video.fx.fadeout import fadeout
 from moviepy.video.fx.colorx import colorx
 from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
+
 from shutil import which
 
 # Allow overriding the ImageMagick binary location via environment variable
@@ -17,6 +18,7 @@ if im_path:
     change_settings({"IMAGEMAGICK_BINARY": im_path})
 else:
     print("⚠️ ImageMagick not found. Set IMAGEMAGICK_BINARY or install it to render text.")
+
 
 TRANSITION_DURATION = 0.3  # seconds for crossfades and text fades
 
@@ -73,7 +75,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
                 return x_final, y_final
 
         return clip.set_position(pos)
-
     if transition == "zoom":
         def resize(t):
             if t < duration:
