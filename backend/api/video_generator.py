@@ -97,7 +97,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
             if t < zoom_in_t + hold_t:
                 return 1.0
             return 0.3 + 0.7 * (max(clip.duration - t, 0) / zoom_out_t)
-
         return (
             clip.set_position(base_pos)
             .resize(resize)
@@ -217,8 +216,8 @@ def generate_video(
                 )
             is_last_slide = i == len(texts) - 1
             if is_last_slide:
-                # keep text visible until the slide ends but not into the fade-out
                 txt_duration = max(slide_duration - TRANSITION_DURATION, 0.1)
+
             else:
                 txt_duration = max(slide_duration - 2 * TRANSITION_DURATION, 0.1)
             txt_clip = (
