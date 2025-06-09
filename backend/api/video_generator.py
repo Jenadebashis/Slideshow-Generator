@@ -101,8 +101,7 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
             mask = np.zeros((clip.h, clip.w))
             mask[:, :w] = 1.0
             return mask
-
-        mask_clip = VideoClip(mask_frame, is_mask=True).set_duration(clip.duration)
+        mask_clip = VideoClip(mask_frame, ismask=True).set_duration(clip.duration)
 
         return (
             clip.set_position(base_pos)
@@ -173,15 +172,17 @@ def generate_video(
         position_percent = positions[i] if i < len(positions) and positions[i].strip() else None
         slide_duration = durations[i] if durations and i < len(durations) else duration_per_slide
 
-
-        try:
-            percent = float(position_percent)
-            y_pos = int(size[1] * percent / 100.0)
-            y_pos = max(40, min(y_pos, size[1] - 100))  # Clamp
-            text_position = ('center', y_pos)
-        except Exception as e:
-            print(f"Invalid position: {e}")
-            text_position = 'center'
+        if position_percent is not None and position_percent != "":
+            try:
+                percent = float(position_percent)
+                y_pos = int(size[1] * percent / 100.0)
+                y_pos = max(40, min(y_pos, size[1] - 100))  # Clamp
+                text_position = ("center", y_pos)
+            except Exception as e:
+                print(f"Invalid position: {e}")
+                text_position = "center"
+        else:
+            text_position = "center"
         try:
             if transitions and i < len(transitions) and transitions[i].strip():
                 transition_name = transitions[i].strip()
