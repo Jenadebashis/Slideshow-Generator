@@ -101,7 +101,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
             mask = np.zeros((clip.h, clip.w))
             mask[:, :w] = 1.0
             return mask
-
         mask_clip = VideoClip(mask_frame, ismask=True).set_duration(clip.duration)
 
         return (
