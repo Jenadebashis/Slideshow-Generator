@@ -97,7 +97,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
             if t < zoom_in_t + hold_t:
                 return 1.0
             return 0.3 + 0.7 * (max(clip.duration - t, 0) / zoom_out_t)
-
         return (
             clip.set_position(base_pos)
             .resize(resize)
