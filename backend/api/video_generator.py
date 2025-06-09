@@ -87,13 +87,21 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
 
         return clip.set_position(pos)
     if transition == "zoom":
+        zoom_in_t = 0.4 * clip.duration
+        hold_t = 0.4 * clip.duration
+        zoom_out_t = max(clip.duration - zoom_in_t - hold_t, 0.01)
+
         def resize(t):
-            if t < duration:
-                return 0.3 + 0.7 * (t / duration)
-            if t > clip.duration - duration:
-                return 0.3 + 0.7 * (max(clip.duration - t, 0) / duration)
-            return 1.0
-        return clip.set_position(base_pos).resize(resize)
+            if t < zoom_in_t:
+                return 0.3 + 0.7 * (t / zoom_in_t)
+            if t < zoom_in_t + hold_t:
+                return 1.0
+            return 0.3 + 0.7 * (max(clip.duration - t, 0) / zoom_out_t)
+        return (
+            clip.set_position(base_pos)
+            .resize(resize)
+            .fx(fadeout, zoom_out_t)
+        )
 
     if transition == "typewriter":
         appear_t = 0.7 * clip.duration
@@ -114,7 +122,15 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
 
         mask_clip = VideoClip(mask_frame, ismask=True).set_duration(clip.duration)
 
-        return clip.set_position(base_pos).set_mask(mask_clip)
+        if clip.mask is not None:
+            def combined_mask_frame(t):
+                return clip.mask.get_frame(t) * mask_clip.get_frame(t)
+
+            combined = VideoClip(combined_mask_frame, ismask=True).set_duration(clip.duration)
+        else:
+            combined = mask_clip
+
+        return clip.set_position(base_pos).set_mask(combined)
 
     if transition == "glitch":
         def pos(t):
