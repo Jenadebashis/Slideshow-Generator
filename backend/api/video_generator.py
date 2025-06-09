@@ -4,6 +4,7 @@ import gc
 from moviepy.editor import (
     TextClip,
     ImageClip,
+    VideoClip,
     CompositeVideoClip,
     concatenate_videoclips,
     AudioFileClip,
@@ -12,6 +13,7 @@ from moviepy.video.fx.fadein import fadein
 from moviepy.video.fx.fadeout import fadeout
 from moviepy.video.fx.colorx import colorx
 from moviepy.video.fx.crop import crop
+import numpy as np
 from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
 from shutil import which
@@ -94,9 +96,17 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
         return clip.set_position(base_pos).resize(resize)
 
     if transition == "typewriter":
+        def mask_frame(t):
+            w = int(clip.w * min(1.0, t / clip.duration))
+            mask = np.zeros((clip.h, clip.w))
+            mask[:, :w] = 1.0
+            return mask
+
+        mask_clip = VideoClip(mask_frame, is_mask=True).set_duration(clip.duration)
+
         return (
             clip.set_position(base_pos)
-            .fx(crop, x2=lambda t: clip.w * min(1, t / clip.duration))
+            .set_mask(mask_clip)
             .fx(fadein, duration)
             .fx(fadeout, duration)
         )
