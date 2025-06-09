@@ -4,6 +4,7 @@ import gc
 from moviepy.editor import (
     TextClip,
     ImageClip,
+    VideoClip,
     CompositeVideoClip,
     concatenate_videoclips,
     AudioFileClip,
@@ -12,6 +13,7 @@ from moviepy.video.fx.fadein import fadein
 from moviepy.video.fx.fadeout import fadeout
 from moviepy.video.fx.colorx import colorx
 from moviepy.video.fx.crop import crop
+import numpy as np
 from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
 from shutil import which
@@ -94,12 +96,25 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
         return clip.set_position(base_pos).resize(resize)
 
     if transition == "typewriter":
-        return (
-            clip.set_position(base_pos)
-            .fx(crop, x2=lambda t: clip.w * min(1, t / clip.duration))
-            .fx(fadein, duration)
-            .fx(fadeout, duration)
-        )
+        appear_t = 0.7 * clip.duration
+        hold_t = 0.2 * clip.duration
+        disappear_t = max(clip.duration - appear_t - hold_t, 0.01)
+
+        def mask_frame(t):
+            if t < appear_t:
+                frac = t / appear_t
+            elif t < appear_t + hold_t:
+                frac = 1.0
+            else:
+                frac = max(0.0, (clip.duration - t) / disappear_t)
+            w = int(clip.w * frac)
+            mask = np.zeros((clip.h, clip.w))
+            mask[:, :w] = 1.0
+            return mask
+
+        mask_clip = VideoClip(mask_frame, ismask=True).set_duration(clip.duration)
+
+        return clip.set_position(base_pos).set_mask(mask_clip)
 
     if transition == "glitch":
         def pos(t):
@@ -130,9 +145,22 @@ def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
         method="compose",
     )
 
-def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None, durations=None, darkening=None):
+def generate_video(
+    texts,
+    image_paths,
+    music_path,
+    output_path,
+    duration_per_slide=4,
+    size=(720, 1280),
+    positions=None,
+    durations=None,
+    darkening=None,
+    transitions=None,
+):
     if positions is None:
         positions = []
+    if transitions is None:
+        transitions = []
     image_clips = []
     text_clips = []
     slide_durations = []
@@ -150,17 +178,31 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
         position_percent = positions[i] if i < len(positions) and positions[i].strip() else None
         slide_duration = durations[i] if durations and i < len(durations) else duration_per_slide
 
-
+        if position_percent is not None and position_percent != "":
+            try:
+                percent = float(position_percent)
+                y_pos = int(size[1] * percent / 100.0)
+                y_pos = max(40, min(y_pos, size[1] - 100))  # Clamp
+                text_position = ("center", y_pos)
+            except Exception as e:
+                print(f"Invalid position: {e}")
+                text_position = "center"
+        else:
+            text_position = "center"
         try:
-            percent = float(position_percent)
-            y_pos = int(size[1] * percent / 100.0)
-            y_pos = max(40, min(y_pos, size[1] - 100))  # Clamp
-            text_position = ('center', y_pos)
-        except Exception as e:
-            print(f"Invalid position: {e}")
-            text_position = 'center'
-        try:
-            transition_name = available_transitions.pop() if available_transitions else random.choice(TEXT_TRANSITIONS)
+            if transitions and i < len(transitions) and transitions[i].strip():
+                transition_name = transitions[i].strip()
+            else:
+                transition_name = (
+                    available_transitions.pop()
+                    if available_transitions
+                    else random.choice(TEXT_TRANSITIONS)
+                )
+            is_last_slide = i == len(texts) - 1
+            if is_last_slide:
+                txt_duration = slide_duration
+            else:
+                txt_duration = max(slide_duration - 2 * TRANSITION_DURATION, 0.1)
             txt_clip = (
                 TextClip(
                     text,
@@ -168,10 +210,11 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
                     color='white',
                     font="Arial",  # or your font path
                     method='caption',
+                    bg_color='transparent',
                     size=(size[0] - 100, None),
                     align='center'
                 )
-                .set_duration(slide_duration)
+                .set_duration(txt_duration)
             )
             txt_clip = apply_text_transition(
                 txt_clip,
@@ -221,8 +264,10 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
     for dur in slide_durations[:-1]:
         start_times.append(start_times[-1] + dur - TRANSITION_DURATION)
 
+    text_start_times = [s + TRANSITION_DURATION for s in start_times]
+
     # Overlay text clips at their corresponding start times
-    overlays = [final_video] + [t.set_start(s) for t, s in zip(text_clips, start_times)]
+    overlays = [final_video] + [t.set_start(s) for t, s in zip(text_clips, text_start_times)]
     final_video = CompositeVideoClip(overlays, size=size)
 
     if music_path:
