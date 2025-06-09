@@ -96,19 +96,25 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
         return clip.set_position(base_pos).resize(resize)
 
     if transition == "typewriter":
+        appear_t = 0.7 * clip.duration
+        hold_t = 0.2 * clip.duration
+        disappear_t = max(clip.duration - appear_t - hold_t, 0.01)
+
         def mask_frame(t):
-            w = int(clip.w * min(1.0, t / clip.duration))
+            if t < appear_t:
+                frac = t / appear_t
+            elif t < appear_t + hold_t:
+                frac = 1.0
+            else:
+                frac = max(0.0, (clip.duration - t) / disappear_t)
+            w = int(clip.w * frac)
             mask = np.zeros((clip.h, clip.w))
             mask[:, :w] = 1.0
             return mask
+
         mask_clip = VideoClip(mask_frame, ismask=True).set_duration(clip.duration)
 
-        return (
-            clip.set_position(base_pos)
-            .set_mask(mask_clip)
-            .fx(fadein, duration)
-            .fx(fadeout, duration)
-        )
+        return clip.set_position(base_pos).set_mask(mask_clip)
 
     if transition == "glitch":
         def pos(t):
@@ -204,6 +210,7 @@ def generate_video(
                     color='white',
                     font="Arial",  # or your font path
                     method='caption',
+                    bg_color='transparent',
                     size=(size[0] - 100, None),
                     align='center'
                 )
