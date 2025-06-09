@@ -216,7 +216,8 @@ def generate_video(
                 )
             is_last_slide = i == len(texts) - 1
             if is_last_slide:
-                txt_duration = slide_duration
+                txt_duration = max(slide_duration - TRANSITION_DURATION, 0.1)
+
             else:
                 txt_duration = max(slide_duration - 2 * TRANSITION_DURATION, 0.1)
             txt_clip = (
