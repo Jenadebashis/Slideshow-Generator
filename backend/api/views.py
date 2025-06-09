@@ -16,6 +16,7 @@ def create_slideshow(request):
         positions = request.data.getlist('positions')  # Same length as texts
         durations = request.data.getlist('duration')
         durations = [float(d) if d else 4.0 for d in durations]
+        transitions = request.data.getlist('transitions')
         images = request.FILES.getlist('images')
         raw_darkening = request.data.getlist('darkening')
         print(f"📝 darkening received: {raw_darkening}")
@@ -61,7 +62,16 @@ def create_slideshow(request):
         unique_name = f"{uuid.uuid4().hex}.mp4"
         output_path = os.path.join(settings.MEDIA_ROOT, unique_name)
         print(f"⚙️ Calling generate_video function... output: {output_path}")
-        generate_video(texts, image_paths, music_path, output_path, positions=positions, durations=durations, darkening=darkening)
+        generate_video(
+            texts,
+            image_paths,
+            music_path,
+            output_path,
+            positions=positions,
+            durations=durations,
+            darkening=darkening,
+            transitions=transitions,
+        )
 
         if not os.path.exists(output_path):
             print("❌ Video file was not created!")

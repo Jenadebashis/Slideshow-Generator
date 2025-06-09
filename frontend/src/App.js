@@ -2,12 +2,26 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './App.css';
 
+const transitionOptions = [
+  'fade',
+  'slide_left',
+  'slide_right',
+  'slide_top',
+  'slide_bottom',
+  'zoom',
+  'typewriter',
+  'glitch',
+  'rotate',
+];
+
 function App() {
   const [images, setImages] = useState([]);
   const [music, setMusic] = useState(null);
   const [duration, setDuration] = useState(4);
   const [loading, setLoading] = useState(false);
-  const [slides, setSlides] = useState([{ text: '', position: '', darkening: '', duration: '' }]);
+  const [slides, setSlides] = useState([
+    { text: '', position: '', darkening: '', duration: '', transition: '' },
+  ]);
 
   const handleSlideChange = (index, field, value) => {
     const updated = [...slides];
@@ -25,6 +39,7 @@ function App() {
       formData.append('positions', slide.position);
       formData.append('darkening', slide.darkening);
       formData.append('duration', slide.duration); // May be blank
+      formData.append('transitions', slide.transition);
     });
     images.forEach(img => formData.append('images', img));
     if (music) formData.append('music', music);
@@ -89,9 +104,28 @@ function App() {
                 value={slide.duration}
                 onChange={(e) => handleSlideChange(i, 'duration', e.target.value)}
               />
+              <select
+                value={slide.transition}
+                onChange={(e) => handleSlideChange(i, 'transition', e.target.value)}
+              >
+                <option value="">Random</option>
+                {transitionOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
             </div>
           ))}
-          <button type="button" onClick={() => setSlides([...slides, { text: '', position: '', darkening: '', duration: '' }])}>
+          <button
+            type="button"
+            onClick={() =>
+              setSlides([
+                ...slides,
+                { text: '', position: '', darkening: '', duration: '', transition: '' },
+              ])
+            }
+          >
             ➕ Add Another Slide
           </button>
         </div>
