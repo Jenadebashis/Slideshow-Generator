@@ -130,9 +130,22 @@ def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
         method="compose",
     )
 
-def generate_video(texts, image_paths, music_path, output_path, duration_per_slide=4, size=(720, 1280), positions=None, durations=None, darkening=None):
+def generate_video(
+    texts,
+    image_paths,
+    music_path,
+    output_path,
+    duration_per_slide=4,
+    size=(720, 1280),
+    positions=None,
+    durations=None,
+    darkening=None,
+    transitions=None,
+):
     if positions is None:
         positions = []
+    if transitions is None:
+        transitions = []
     image_clips = []
     text_clips = []
     slide_durations = []
@@ -160,8 +173,19 @@ def generate_video(texts, image_paths, music_path, output_path, duration_per_sli
             print(f"Invalid position: {e}")
             text_position = 'center'
         try:
-            transition_name = available_transitions.pop() if available_transitions else random.choice(TEXT_TRANSITIONS)
-            txt_duration = max(slide_duration - 2 * TRANSITION_DURATION, 0.1)
+            if transitions and i < len(transitions) and transitions[i].strip():
+                transition_name = transitions[i].strip()
+            else:
+                transition_name = (
+                    available_transitions.pop()
+                    if available_transitions
+                    else random.choice(TEXT_TRANSITIONS)
+                )
+            is_last_slide = i == len(texts) - 1
+            if is_last_slide:
+                txt_duration = slide_duration
+            else:
+                txt_duration = max(slide_duration - 2 * TRANSITION_DURATION, 0.1)
             txt_clip = (
                 TextClip(
                     text,
