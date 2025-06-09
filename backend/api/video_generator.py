@@ -104,8 +104,8 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
         )
 
     if transition == "typewriter":
-        appear_t = 0.7 * clip.duration
-        hold_t = 0.2 * clip.duration
+        appear_t = 0.5 * clip.duration
+        hold_t = 0.35 * clip.duration
         disappear_t = max(clip.duration - appear_t - hold_t, 0.01)
 
         def mask_frame(t):
@@ -131,7 +131,6 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
             combined = mask_clip
 
         return clip.set_position(base_pos).set_mask(combined)
-
     if transition == "glitch":
         def pos(t):
             if t < duration or t > clip.duration - duration:
@@ -143,13 +142,24 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
 
     if transition == "rotate":
         def rotation(t):
-            if t < duration:
-                return -15 + 15 * (t / duration)
-            if t > clip.duration - duration:
-                return 15 * ((clip.duration - t) / duration)
-            return 0
+            total_duration = clip.duration
+            in_duration = 0.4 * total_duration
+            still_duration = 0.4 * total_duration
+            out_duration = 0.2 * total_duration
+
+            if t < in_duration:
+                # Inward rotation: from -15° to 0°
+                return -15 + 15 * (t / in_duration)
+            elif t < in_duration + still_duration:
+                # Steady part: no rotation
+                return 0
+            else:
+                # Outward rotation: from 0° to +15°
+                time_into_out = t - (in_duration + still_duration)
+                return 15 * (time_into_out / out_duration)
 
         return clip.set_position(base_pos).rotate(rotation)
+
 
     # Fallback
     return clip.set_position(base_pos)
