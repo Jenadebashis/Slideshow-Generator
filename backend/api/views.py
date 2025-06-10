@@ -17,6 +17,7 @@ def create_slideshow(request):
         durations = request.data.getlist('duration')
         durations = [float(d) if d else 4.0 for d in durations]
         transitions = request.data.getlist('transitions')
+        image_effects = request.data.getlist('image_effects')
         images = request.FILES.getlist('images')
         raw_darkening = request.data.getlist('darkening')
         print(f"📝 darkening received: {raw_darkening}")
@@ -71,6 +72,7 @@ def create_slideshow(request):
             durations=durations,
             darkening=darkening,
             transitions=transitions,
+            image_effects=image_effects,
         )
 
         if not os.path.exists(output_path):
