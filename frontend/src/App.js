@@ -14,13 +14,23 @@ const transitionOptions = [
   'rotate',
 ];
 
+const imageEffectOptions = [
+  'depth_zoom',
+  'ken_burns',
+  'color_grade',
+  'light_leaks',
+  'film_grain',
+  'vignette',
+  'motion_overlay',
+];
+
 function App() {
   const [images, setImages] = useState([]);
   const [music, setMusic] = useState(null);
   const [duration, setDuration] = useState(4);
   const [loading, setLoading] = useState(false);
   const [slides, setSlides] = useState([
-    { text: '', position: '', darkening: '', duration: '', transition: '' },
+    { text: '', position: '', darkening: '', duration: '', transition: '', effect: '' },
   ]);
 
   const handleSlideChange = (index, field, value) => {
@@ -40,6 +50,7 @@ function App() {
       formData.append('darkening', slide.darkening);
       formData.append('duration', slide.duration); // May be blank
       formData.append('transitions', slide.transition);
+      formData.append('image_effects', slide.effect);
     });
     images.forEach(img => formData.append('images', img));
     if (music) formData.append('music', music);
@@ -115,6 +126,17 @@ function App() {
                   </option>
                 ))}
               </select>
+              <select
+                value={slide.effect}
+                onChange={(e) => handleSlideChange(i, 'effect', e.target.value)}
+              >
+                <option value="">None</option>
+                {imageEffectOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
             </div>
           ))}
           <button
@@ -122,7 +144,7 @@ function App() {
             onClick={() =>
               setSlides([
                 ...slides,
-                { text: '', position: '', darkening: '', duration: '', transition: '' },
+                { text: '', position: '', darkening: '', duration: '', transition: '', effect: '' },
               ])
             }
           >

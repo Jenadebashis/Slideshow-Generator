@@ -8,6 +8,7 @@ from moviepy.editor import (
     CompositeVideoClip,
     concatenate_videoclips,
     AudioFileClip,
+    ColorClip,
 )
 from moviepy.video.fx.fadein import fadein
 from moviepy.video.fx.fadeout import fadeout
@@ -39,6 +40,16 @@ TEXT_TRANSITIONS = [
     "typewriter",
     "glitch",
     "rotate",
+]
+
+IMAGE_EFFECTS = [
+    "depth_zoom",
+    "ken_burns",
+    "color_grade",
+    "light_leaks",
+    "film_grain",
+    "vignette",
+    "motion_overlay",
 ]
 
 def apply_text_transition(clip, transition, duration, final_pos, video_size):
@@ -161,6 +172,66 @@ def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
         method="compose",
     )
 
+def apply_image_effect(clip, effect_name, duration, size):
+    """Apply visual effects to an image clip."""
+    if effect_name == "depth_zoom":
+        def zoom(t):
+            return 1 + 0.3 * (t / duration)
+
+        def pos(t):
+            p = t / duration
+            return (-size[0] * 0.05 * p, -size[1] * 0.05 * p)
+
+        return clip.resize(zoom).set_position(pos)
+
+    if effect_name == "ken_burns":
+        def zoom(t):
+            return 1 + 0.1 * (t / duration)
+
+        def pos(t):
+            p = t / duration
+            return (-size[0] * 0.02 * p, -size[1] * 0.02 * p)
+
+        return clip.resize(zoom).set_position(pos)
+
+    if effect_name == "color_grade":
+        return colorx(clip, 1.2)
+
+    if effect_name == "light_leaks":
+        overlay = ColorClip(size, color=(255, 200, 150)).set_opacity(0.3).set_duration(duration)
+        return CompositeVideoClip([clip, overlay], size=size)
+
+    if effect_name == "film_grain":
+        def noise_frame(t):
+            return (np.random.rand(size[1], size[0], 3) * 255).astype("uint8")
+
+        grain = VideoClip(noise_frame, ismask=False).set_opacity(0.05).set_duration(duration)
+        return CompositeVideoClip([clip, grain], size=size)
+
+    if effect_name == "vignette":
+        y, x = np.ogrid[:size[1], :size[0]]
+        cx, cy = size[0] / 2, size[1] / 2
+        dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+        max_dist = np.sqrt(cx ** 2 + cy ** 2)
+        mask = 1 - np.clip(dist / max_dist, 0, 1)
+
+        def apply(frame):
+            return (frame * mask[..., None]).astype("uint8")
+
+        return clip.fl_image(apply)
+
+    if effect_name == "motion_overlay":
+        def motion_frame(t):
+            frame = np.zeros((size[1], size[0], 3), dtype="uint8")
+            y = int((t * 50) % size[1])
+            frame[max(0, y - 2):y + 2, :, :] = 255
+            return frame
+
+        overlay = VideoClip(motion_frame).set_opacity(0.1).set_duration(duration)
+        return CompositeVideoClip([clip, overlay], size=size)
+
+    return clip
+
 def generate_video(
     texts,
     image_paths,
@@ -172,11 +243,14 @@ def generate_video(
     durations=None,
     darkening=None,
     transitions=None,
+    image_effects=None,
 ):
     if positions is None:
         positions = []
     if transitions is None:
         transitions = []
+    if image_effects is None:
+        image_effects = []
     image_clips = []
     text_clips = []
     slide_durations = []
@@ -185,7 +259,8 @@ def generate_video(
     print(f"Number of texts: {len(texts)}")
     print(f"Number of image paths: {len(image_paths)}")
     print(f"Positions received: {positions}")
-    print(f"🌓 Darkening level applied to images: {darkening}\n")
+    print(f"🌓 Darkening level applied to images: {darkening}")
+    print(f"✨ Image effects: {image_effects}\n")
     available_transitions = TEXT_TRANSITIONS.copy()
     random.shuffle(available_transitions)
 
@@ -258,6 +333,10 @@ def generate_video(
             img_clip = img_clip.crop(width=size[0], height=size[1], x_center=img_clip.w / 2, y_center=img_clip.h / 2)
             img_clip = img_clip.set_duration(slide_duration)
             img_clip = colorx(img_clip, darken_value)
+            effect_name = image_effects[i].strip() if image_effects and i < len(image_effects) and image_effects[i].strip() else None
+            if effect_name:
+                img_clip = apply_image_effect(img_clip, effect_name, slide_duration, size)
+                print(f"🖼 Slide {i}: Effect '{effect_name}' applied")
             print(f"🖼 Slide {i}: Image darkened by factor {darken_value} and duration {slide_duration}")
         except Exception as e:
             print(f"❗ Slide {i}: Image processing failed. Error: {e}")

@@ -10,7 +10,24 @@ This project generates slideshow videos from user-provided images and text, with
 - Add custom text for each slide
 - Upload background music (optional)
 - Auto-generate a downloadable slideshow video
+- Apply visual effects to images (ken_burns, vignette, etc.)
 - Built with Python (MoviePy) + React
+
+---
+
+### Image Effects
+
+Each slide can apply one of several visual effects:
+
+- `depth_zoom`
+- `ken_burns`
+- `color_grade`
+- `light_leaks`
+- `film_grain`
+- `vignette`
+- `motion_overlay`
+
+Select an effect from the drop-down next to each slide on the frontend. Leave it blank for no effect.
 
 ---
 
