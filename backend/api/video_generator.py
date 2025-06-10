@@ -140,8 +140,8 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
     if transition == "rotate":
         def rotation(t):
             total_duration = clip.duration
-            in_duration = 0.4 * total_duration
-            still_duration = 0.4 * total_duration
+            in_duration = 0.2 * total_duration
+            still_duration = 0.6 * total_duration
             out_duration = 0.2 * total_duration
 
             if t < in_duration:
