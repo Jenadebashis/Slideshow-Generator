@@ -1,5 +1,6 @@
 import os
 import random
+import cv2
 import gc
 from moviepy.editor import (
     TextClip,
@@ -43,13 +44,14 @@ TEXT_TRANSITIONS = [
 ]
 
 IMAGE_EFFECTS = [
-    "depth_zoom",
-    "ken_burns",
-    "color_grade",
-    "light_leaks",
-    "film_grain",
-    "vignette",
-    "motion_overlay",
+    "depth_zoom",         # immersive zoom
+    "ken_burns",          # slow pan + zoom storytelling
+    "film_grain",         # vintage cinematic texture
+    "ripple",             # smooth vertical emotion wave
+    "light_pulse",        # ambient brightness pulse
+    "parallax_pan",       # subtle 3D camera motion
+    "color_tint_shift",   # emotional warm–cool tone shift
+    "wave_scan",          # awakening-style horizontal light beam
 ]
 
 def apply_text_transition(clip, transition, duration, final_pos, video_size):
@@ -167,6 +169,11 @@ def apply_text_transition(clip, transition, duration, final_pos, video_size):
 
     return clip.set_position(base_pos)
 
+from moviepy.editor import VideoClip, CompositeVideoClip
+import numpy as np
+import cv2
+import random
+
 def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
     clip1 = clip1.crossfadeout(duration)
     clip2 = clip2.crossfadein(duration).set_start(clip1.duration - duration)
@@ -174,15 +181,20 @@ def apply_image_transition(clip1, clip2, duration=TRANSITION_DURATION):
     return final.set_duration(clip1.duration + clip2.duration - duration)
 
 
+import numpy as np
+from moviepy.editor import VideoClip, CompositeVideoClip, ColorClip
+
 def apply_image_effect(clip, effect_name, duration, size):
     """Apply visual effects to an image clip."""
+    w, h = size
+
     if effect_name == "depth_zoom":
         def zoom(t):
             return 1 + 0.3 * (t / duration)
 
         def pos(t):
             p = t / duration
-            return (-size[0] * 0.05 * p, -size[1] * 0.05 * p)
+            return (-w * 0.05 * p, -h * 0.05 * p)
 
         return clip.resize(zoom).set_position(pos)
 
@@ -192,47 +204,88 @@ def apply_image_effect(clip, effect_name, duration, size):
 
         def pos(t):
             p = t / duration
-            return (-size[0] * 0.02 * p, -size[1] * 0.02 * p)
+            return (-w * 0.02 * p, -h * 0.02 * p)
 
         return clip.resize(zoom).set_position(pos)
 
-    if effect_name == "color_grade":
-        return colorx(clip, 1.2)
-
-    if effect_name == "light_leaks":
-        overlay = ColorClip(size, color=(255, 200, 150)).set_opacity(0.3).set_duration(duration)
-        return CompositeVideoClip([clip, overlay], size=size)
-
     if effect_name == "film_grain":
         def noise_frame(t):
-            return (np.random.rand(size[1], size[0], 3) * 255).astype("uint8")
+            return (np.random.rand(h, w, 3) * 255).astype("uint8")
 
         grain = VideoClip(noise_frame, ismask=False).set_opacity(0.05).set_duration(duration)
         return CompositeVideoClip([clip, grain], size=size)
 
-    if effect_name == "vignette":
-        y, x = np.ogrid[:size[1], :size[0]]
-        cx, cy = size[0] / 2, size[1] / 2
-        dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-        max_dist = np.sqrt(cx ** 2 + cy ** 2)
-        mask = 1 - np.clip(dist / max_dist, 0, 1)
+    if effect_name == "ripple":
+        def smooth_vertical_ripple(get_frame, t):
+            frame = get_frame(t)
+            new_frame = np.copy(frame)
+            band_height = int(0.8 * h)
+            band_start = int(abs(np.sin(np.pi * t / duration)) * (h - band_height))
 
-        def apply(frame):
-            return (frame * mask[..., None]).astype("uint8")
+            for y in range(band_start, band_start + band_height):
+                local_t = (y - band_start) / band_height
+                strength = np.sin(np.pi * local_t) * np.sin(np.pi * t / duration)
+                offset = int(np.sin(2 * np.pi * y / 60 + 3 * t) * strength * 10)
+                for x in range(w):
+                    src_x = np.clip(x + offset, 0, w - 1)
+                    new_frame[y, x] = frame[y, src_x]
 
-        return clip.fl_image(apply)
+            return new_frame
 
-    if effect_name == "motion_overlay":
-        def motion_frame(t):
-            frame = np.zeros((size[1], size[0], 3), dtype="uint8")
-            y = int((t * 50) % size[1])
-            frame[max(0, y - 2):y + 2, :, :] = 255
-            return frame
+        return clip.fl(smooth_vertical_ripple, apply_to=["video", "mask"]).set_duration(duration)
 
-        overlay = VideoClip(motion_frame).set_opacity(0.1).set_duration(duration)
-        return CompositeVideoClip([clip, overlay], size=size)
+    if effect_name == "light_pulse":
+        def pulse_brightness(get_frame, t):
+            frame = get_frame(t).astype("float32")
+            pulse = 0.9 + 0.1 * np.sin(2 * np.pi * t / duration)
+            return np.clip(frame * pulse, 0, 255).astype("uint8")
+
+        return clip.fl(pulse_brightness, apply_to=["video", "mask"]).set_duration(duration)
+
+    if effect_name == "parallax_pan":
+        def pos(t):
+            shift_x = -w * 0.01 * np.sin(np.pi * t / duration)
+            shift_y = -h * 0.01 * np.cos(np.pi * t / duration)
+            return (shift_x, shift_y)
+
+        return clip.set_position(pos)
+
+    if effect_name == "color_tint_shift":
+        def tint_shift(get_frame, t):
+            frame = get_frame(t).astype("float32")
+
+            # Shift goes 0 → 1 → 0 across duration
+            shift = 0.5 + 0.5 * np.sin(2 * np.pi * t / duration)
+
+            # Target color to blend towards (cool blue here)
+            target_color = np.array([100, 150, 255], dtype="float32")  # soft blue
+
+            # Blend the original frame toward the target color
+            tint = (1 - shift) * frame + shift * target_color
+            return np.clip(tint, 0, 255).astype("uint8")
+
+        return clip.fl(tint_shift, apply_to=["video", "mask"]).set_duration(duration)
+
+
+    if effect_name == "wave_scan":
+        def scan_mask(get_frame, t):
+            frame = get_frame(t).astype("float32")
+            y = np.linspace(0, 1, h).reshape(-1, 1)
+            scan_pos = (t / duration)  # 0 to 1
+            band = np.exp(-((y - scan_pos)**2) / 0.01)  # tight pulse band
+
+            # Apply white pulse glow
+            scan_strength = band * 0.25  # max +25% brightness
+            scan_mask = np.repeat(scan_strength, w, axis=1)[:, :, None]
+            enhanced = np.clip(frame * (1 + scan_mask), 0, 255)
+
+            return enhanced.astype("uint8")
+
+        return clip.fl(scan_mask, apply_to=["video", "mask"]).set_duration(duration)
+
 
     return clip
+
 
 def generate_video(
     texts,
