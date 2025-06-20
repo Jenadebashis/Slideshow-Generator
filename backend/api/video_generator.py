@@ -19,6 +19,7 @@ import numpy as np
 from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
 from shutil import which
+from scipy.ndimage import convolve1d
 
 # Allow overriding the ImageMagick binary location via environment variable
 im_path = os.getenv("IMAGEMAGICK_BINARY")
@@ -270,19 +271,39 @@ def apply_image_effect(clip, effect_name, duration, size):
     if effect_name == "wave_scan":
         def scan_mask(get_frame, t):
             frame = get_frame(t).astype("float32")
+            h, w = frame.shape[:2]
+            
+            # Vertical coordinate normalized
             y = np.linspace(0, 1, h).reshape(-1, 1)
-            scan_pos = (t / duration)  # 0 to 1
-            band = np.exp(-((y - scan_pos)**2) / 0.01)  # tight pulse band
+            
+            # Dynamic pulse width (widen/narrow)
+            pulse_variation = 0.01 + 0.005 * np.sin(2 * np.pi * t / duration)
+            scan_pos = t / duration  # position of the scan wave
+            band = np.exp(-((y - scan_pos) ** 2) / pulse_variation)
 
-            # Apply white pulse glow
-            scan_strength = band * 0.25  # max +25% brightness
+            # Flicker effect
+            flicker = 0.85 + 0.15 * np.sin(8 * np.pi * t)
+            scan_strength = band * 0.25 * flicker  # max +25% brightness with flicker
+
+            # Expand to full frame
             scan_mask = np.repeat(scan_strength, w, axis=1)[:, :, None]
-            enhanced = np.clip(frame * (1 + scan_mask), 0, 255)
+
+            # Tint color (bluish sci-fi)
+            tint_color = np.array([180, 220, 255], dtype="float32")  # RGB
+            frame_tinted = frame + (tint_color - frame) * scan_mask * 0.5
+            enhanced = np.clip(frame_tinted * (1 + scan_mask), 0, 255)
+
+            # --- Bloom/Glow effect ---
+            glow = (frame * (scan_mask * 0.6)).astype("uint8")
+            glow = cv2.GaussianBlur(glow, (0, 0), sigmaX=5, sigmaY=5)
+            enhanced = np.clip(enhanced + glow, 0, 255)
+
+            enhanced = convolve1d(enhanced, weights=[1, 2, 1], axis=0)
+            enhanced = np.clip(enhanced / 4, 0, 255)
 
             return enhanced.astype("uint8")
 
         return clip.fl(scan_mask, apply_to=["video", "mask"]).set_duration(duration)
-
 
     return clip
 
