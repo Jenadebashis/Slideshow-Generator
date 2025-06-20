@@ -236,12 +236,35 @@ def apply_image_effect(clip, effect_name, duration, size):
         return clip.fl(smooth_vertical_ripple, apply_to=["video", "mask"]).set_duration(duration)
 
     if effect_name == "light_pulse":
-        def pulse_brightness(get_frame, t):
+        def cinematic_pulse(get_frame, t):
             frame = get_frame(t).astype("float32")
-            pulse = 0.9 + 0.1 * np.sin(2 * np.pi * t / duration)
-            return np.clip(frame * pulse, 0, 255).astype("uint8")
 
-        return clip.fl(pulse_brightness, apply_to=["video", "mask"]).set_duration(duration)
+            # 🔁 Pulsing brightness: faster and more cinematic (2 cycles per duration)
+            pulse = 0.9 + 0.1 * np.sin(4 * np.pi * t / duration)
+
+            # 🌈 RGB color shift for mood (cool-warm oscillation)
+            color_shift = np.array([
+                1.0 + 0.05 * np.sin(2 * np.pi * t),   # Red
+                1.0 + 0.03 * np.cos(2 * np.pi * t),   # Green
+                1.0 + 0.04 * np.sin(2 * np.pi * t + np.pi / 2)  # Blue
+            ]).reshape(1, 1, 3)
+
+            # Apply pulse + color shift
+            frame_shifted = frame * pulse * color_shift
+            frame_shifted = np.clip(frame_shifted, 0, 255)
+
+            # ✨ Bloom/Glow effect (soft blurred highlight)
+            import cv2
+            glow = (frame_shifted * 0.3).astype("uint8")
+            glow = cv2.GaussianBlur(glow, (0, 0), sigmaX=4, sigmaY=4)
+
+            enhanced = np.clip(frame_shifted + glow, 0, 255)
+
+            return enhanced.astype("uint8")
+
+        return clip.fl(cinematic_pulse, apply_to=["video", "mask"]).set_duration(duration)
+
+
 
     if effect_name == "parallax_pan":
         def pos(t):
