@@ -24,12 +24,10 @@ function App() {
       : [{ text: '', position: '', darkening: '', duration: '', transition: '', effect: '' }];
   });
 
-  // Persist slides to localStorage
   useEffect(() => {
     localStorage.setItem('slides', JSON.stringify(slides));
   }, [slides]);
 
-  // Persist global duration
   useEffect(() => {
     localStorage.setItem('globalDuration', duration);
   }, [duration]);
@@ -38,6 +36,12 @@ function App() {
     const updated = [...slides];
     updated[index][field] = value;
     setSlides(updated);
+  };
+
+  const handleDeleteSlide = (index) => {
+    const updated = [...slides];
+    updated.splice(index, 1);
+    setSlides(updated.length ? updated : [{ text: '', position: '', darkening: '', duration: '', transition: '', effect: '' }]);
   };
 
   const handleSubmit = async (e) => {
@@ -95,7 +99,7 @@ function App() {
         <div className="section orange">
           <h2>Slide Texts</h2>
           {slides.map((slide, i) => (
-            <div key={i} style={{ marginBottom: '1rem' }}>
+            <div key={i} style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '1rem', borderRadius: '8px' }}>
               <textarea
                 placeholder={`Slide Text ${i + 1}`}
                 value={slide.text}
@@ -141,6 +145,9 @@ function App() {
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
+              <button type="button" onClick={() => handleDeleteSlide(i)} style={{ marginLeft: '1rem', color: 'red' }}>
+                🗑 Delete Slide
+              </button>
             </div>
           ))}
           <button
