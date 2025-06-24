@@ -20,6 +20,10 @@ from moviepy.audio.fx.audio_loop import audio_loop
 from moviepy.config import change_settings
 from shutil import which
 from scipy.ndimage import convolve1d
+from moviepy.editor import AudioFileClip
+from pydub import AudioSegment
+from pydub.playback import play
+from pathlib import Path
 
 # Allow overriding the ImageMagick binary location via environment variable
 im_path = os.getenv("IMAGEMAGICK_BINARY")
@@ -52,7 +56,10 @@ IMAGE_EFFECTS = [
     "light_pulse",        # ambient brightness pulse
     "parallax_pan",       # subtle 3D camera motion
     "color_tint_shift",   # emotional warm–cool tone shift
-    "wave_scan",          # awakening-style horizontal light beam
+    "wave_scan",
+    'parallax_slide', 
+    'tilted_perspective',
+    'depth_swing',
 ]
 
 def apply_text_transition(clip, transition, duration, final_pos, video_size):
@@ -188,6 +195,29 @@ from moviepy.editor import VideoClip, CompositeVideoClip, ColorClip
 def apply_image_effect(clip, effect_name, duration, size):
     """Apply visual effects to an image clip."""
     w, h = size
+
+    if effect_name == "parallax_slide":
+        def zoom(t):
+            return 1 + 0.05 * (t / duration)
+        def pos(t):
+            p = t / duration
+            return (-w * 0.1 * p, -h * 0.05 * (1 - p))
+        return clip.resize(zoom).set_position(pos)
+
+    if effect_name == "tilted_perspective":
+        def zoom(t):
+            return 1 + 0.2 * (t / duration)
+        def pos(t):
+            p = t / duration
+            return (-w * 0.08 * p, -h * 0.02 * p)
+        return clip.resize(zoom).set_position(pos).rotate(lambda t: 2.0 * np.sin(2 * np.pi * t / duration))
+
+    if effect_name == "depth_swing":
+        def zoom(t):
+            return 1 + 0.03 * np.sin(2 * np.pi * t / duration)
+        def pos(t):
+            return ('center', 'center')
+        return clip.resize(zoom).rotate(lambda t: 2 * np.sin(2 * np.pi * t / duration)).set_position(pos)
 
     if effect_name == "depth_zoom":
         def zoom(t):
@@ -330,6 +360,39 @@ def apply_image_effect(clip, effect_name, duration, size):
 
     return clip
 
+def seamless_audio_loop(audio_path, duration, crossfade_ms=None):
+    if not os.path.isfile(audio_path):
+        raise FileNotFoundError(f"❌ Given music_path does not exist: {audio_path}")
+
+    original = AudioSegment.from_file(audio_path)
+    looped = AudioSegment.empty()
+    original_len = len(original)
+
+    if not crossfade_ms:
+        crossfade_ms = min(300, int(original_len * 0.05))
+
+    while len(looped) < duration * 1000:
+        if len(looped) == 0:
+            looped += original
+        else:
+            looped = looped.append(original, crossfade=crossfade_ms)
+
+    looped = looped[:duration * 1000]
+
+    fade_duration = min(500, int(looped.duration_seconds * 100))
+    looped = looped.fade_in(fade_duration).fade_out(fade_duration)
+
+    temp_path = os.path.abspath("temp_looped_audio.mp3")
+    looped.export(temp_path, format="mp3")
+
+    if not os.path.exists(temp_path):
+        raise FileNotFoundError(f"❌ Temp audio export failed at: {temp_path}")
+
+    return temp_path
+
+def ffmpeg_safe_path(path):
+    path = str(path)
+    return f'"{path}"' if ' ' in path or '(' in path or ')' in path else path
 
 def generate_video(
     texts,
@@ -481,10 +544,30 @@ def generate_video(
     print(f"📐 Compositing final video with {len(overlays)} layers (1 base + {len(overlays) - 1} text clips)")
     final_video = CompositeVideoClip(overlays, size=size)
 
+    temp_audio = None
+    music_path = Path(music_path).resolve()
+    if not music_path.exists():
+        raise FileNotFoundError(f"❌ Path doesn't exist: {music_path}")
+    
     if music_path:
         try:
-            audio = AudioFileClip(music_path)
-            final_video = final_video.set_audio(audio_loop(audio, duration=final_video.duration))
+            # Ensure music_path is a valid path string
+            if isinstance(music_path, str):
+                music_path = Path(music_path.strip('"').strip())
+            else:
+                music_path = Path(music_path)
+
+            music_path = music_path.resolve()
+            print(f"🎧 Creating looped audio from: {music_path}")
+
+            if not music_path.exists():
+                raise FileNotFoundError(f"❌ File does not exist: {music_path}")
+
+            temp_audio = seamless_audio_loop(music_path, duration=final_video.duration)
+            print(f"📁 Looped audio created at: {temp_audio}")
+
+            audio = AudioFileClip(ffmpeg_safe_path(temp_audio))
+            final_video = final_video.set_audio(audio)
         except Exception as e:
             print(f"❗ Audio Error: {e}")
 
@@ -507,3 +590,7 @@ def generate_video(
                 pass
         del final_video
         gc.collect()
+        
+        if temp_audio and os.path.exists(temp_audio):
+            os.remove(temp_audio)
+

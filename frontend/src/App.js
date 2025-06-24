@@ -8,8 +8,10 @@ const transitionOptions = [
 ];
 
 const imageEffectOptions = [
-  "depth_zoom", "ken_burns", "film_grain", "ripple",
-  "light_pulse", "parallax_pan", "color_tint_shift", "wave_scan",
+  "depth_zoom", "ken_burns", 
+  "parallax_pan",'parallax_slide', 
+    'tilted_perspective',
+    'depth_swing',"light_pulse", 
 ];
 
 function App() {
