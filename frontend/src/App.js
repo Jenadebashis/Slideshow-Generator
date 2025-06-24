@@ -1,42 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
 const transitionOptions = [
-  'fade',
-  'slide_left',
-  'slide_right',
-  'slide_top',
-  'slide_bottom',
-  'zoom',
-  'typewriter',
-  'glitch',
-  'rotate',
+  'fade', 'slide_left', 'slide_right', 'slide_top', 'slide_bottom',
+  'zoom', 'typewriter', 'glitch', 'rotate',
 ];
 
 const imageEffectOptions = [
-  'depth_zoom',
-  'ken_burns',
-  'color_grade',
-  'light_leaks',
-  'film_grain',
-  'vignette',
-  'motion_overlay',
+  "depth_zoom", "ken_burns", 
+  "parallax_pan",'parallax_slide', 
+    'tilted_perspective',
+    'depth_swing',"light_pulse", 
 ];
 
 function App() {
   const [images, setImages] = useState([]);
   const [music, setMusic] = useState(null);
-  const [duration, setDuration] = useState(4);
+  const [duration, setDuration] = useState(() => localStorage.getItem('globalDuration') || 4);
   const [loading, setLoading] = useState(false);
-  const [slides, setSlides] = useState([
-    { text: '', position: '', darkening: '', duration: '', transition: '', effect: '' },
-  ]);
+  const [slides, setSlides] = useState(() => {
+    const saved = localStorage.getItem('slides');
+    return saved
+      ? JSON.parse(saved)
+      : [{ text: '', position: '', darkening: '', duration: '', transition: '', effect: '' }];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('slides', JSON.stringify(slides));
+  }, [slides]);
+
+  useEffect(() => {
+    localStorage.setItem('globalDuration', duration);
+  }, [duration]);
 
   const handleSlideChange = (index, field, value) => {
     const updated = [...slides];
     updated[index][field] = value;
     setSlides(updated);
+  };
+
+  const handleDeleteSlide = (index) => {
+    const updated = [...slides];
+    updated.splice(index, 1);
+    setSlides(updated.length ? updated : [{ text: '', position: '', darkening: '', duration: '', transition: '', effect: '' }]);
   };
 
   const handleSubmit = async (e) => {
@@ -48,7 +55,7 @@ function App() {
       formData.append('texts', slide.text);
       formData.append('positions', slide.position);
       formData.append('darkening', slide.darkening);
-      formData.append('duration', slide.duration); // May be blank
+      formData.append('duration', slide.duration);
       formData.append('transitions', slide.transition);
       formData.append('image_effects', slide.effect);
     });
@@ -70,14 +77,21 @@ function App() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-
-      // Optionally, setDownloadLink(url) if you want to show it as well.
     } catch (err) {
       console.error(err);
       alert('Video generation failed!');
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setSlides([{ text: '', position: '', darkening: '', duration: '', transition: '', effect: '' }]);
+    setImages([]);
+    setMusic(null);
+    setDuration(4);
+    localStorage.removeItem('slides');
+    localStorage.removeItem('globalDuration');
   };
 
   return (
@@ -87,7 +101,7 @@ function App() {
         <div className="section orange">
           <h2>Slide Texts</h2>
           {slides.map((slide, i) => (
-            <div key={i} style={{ marginBottom: '1rem' }}>
+            <div key={i} style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '1rem', borderRadius: '8px' }}>
               <textarea
                 placeholder={`Slide Text ${i + 1}`}
                 value={slide.text}
@@ -121,9 +135,7 @@ function App() {
               >
                 <option value="">Random</option>
                 {transitionOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
+                  <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
               <select
@@ -132,11 +144,12 @@ function App() {
               >
                 <option value="">None</option>
                 {imageEffectOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
+                  <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
+              <button type="button" onClick={() => handleDeleteSlide(i)} style={{ marginLeft: '1rem', color: 'red' }}>
+                🗑 Delete Slide
+              </button>
             </div>
           ))}
           <button
@@ -153,7 +166,7 @@ function App() {
         </div>
 
         <div className="section blue">
-          <h2>⏱ Slide Duration (seconds)</h2>
+          <h2>⏱ Slide Duration (default)</h2>
           <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} />
         </div>
 
@@ -167,9 +180,14 @@ function App() {
           <input type="file" accept="audio/*" onChange={(e) => setMusic(e.target.files[0])} />
         </div>
 
-        <button className="submit" type="submit" disabled={loading}>
-          {loading ? 'Processing...' : '🚀 Generate Video'}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="submit" type="submit" disabled={loading}>
+            {loading ? 'Processing...' : '🚀 Generate Video'}
+          </button>
+          <button className="submit" type="button" onClick={resetForm}>
+            🔄 Reset Form
+          </button>
+        </div>
       </form>
     </div>
   );
