@@ -361,33 +361,53 @@ def apply_image_effect(clip, effect_name, duration, size):
     return clip
 
 def seamless_audio_loop(audio_path, duration, crossfade_ms=None):
+    print(f"📥 Received request to loop audio: {audio_path}")
+    print(f"⏱ Target duration: {duration:.2f} seconds")
+
     if not os.path.isfile(audio_path):
         raise FileNotFoundError(f"❌ Given music_path does not exist: {audio_path}")
 
+    if not which("ffmpeg"):
+        raise EnvironmentError("❌ ffmpeg not found — required for audio export. Install it and add to PATH.")
+
+    print("✅ ffmpeg is available.")
+    print("📖 Loading original audio...")
     original = AudioSegment.from_file(audio_path)
+    print(f"🎵 Original duration: {len(original) / 1000:.2f} seconds")
+
     looped = AudioSegment.empty()
     original_len = len(original)
 
     if not crossfade_ms:
         crossfade_ms = min(300, int(original_len * 0.05))
+    print(f"🔁 Using crossfade duration: {crossfade_ms} ms")
 
+    print("🔄 Starting audio loop construction...")
+    loop_count = 0
     while len(looped) < duration * 1000:
-        if len(looped) == 0:
-            looped += original
-        else:
-            looped = looped.append(original, crossfade=crossfade_ms)
+        loop_count += 1
+        looped = looped + original if len(looped) == 0 else looped.append(original, crossfade=crossfade_ms)
+    print(f"✅ Loop built with {loop_count} iteration(s), total length: {len(looped) / 1000:.2f} seconds")
 
-    looped = looped[:duration * 1000]
-
+    print("🎚 Applying fade-in and fade-out...")
     fade_duration = min(500, int(looped.duration_seconds * 100))
+    print(f"🎧 Fade duration: {fade_duration} ms")
     looped = looped.fade_in(fade_duration).fade_out(fade_duration)
 
     temp_path = os.path.abspath("temp_looped_audio.mp3")
-    looped.export(temp_path, format="mp3")
+    print(f"💾 Exporting looped audio to: {temp_path}")
+
+    try:
+        looped.export(temp_path, format="mp3")
+    except Exception as e:
+        raise RuntimeError(f"❌ Export failed: {e}")
 
     if not os.path.exists(temp_path):
         raise FileNotFoundError(f"❌ Temp audio export failed at: {temp_path}")
+    if os.path.getsize(temp_path) == 0:
+        raise RuntimeError(f"❌ Exported file is empty: {temp_path}")
 
+    print(f"✅ Looped audio successfully exported. Size: {os.path.getsize(temp_path)} bytes")
     return temp_path
 
 def ffmpeg_safe_path(path):
@@ -567,6 +587,8 @@ def generate_video(
             print(f"📁 Looped audio created at: {temp_audio}")
 
             audio = AudioFileClip(ffmpeg_safe_path(temp_audio))
+            print(f"✅ Audio file exists: {os.path.exists(temp_audio)}")
+            print(f"📏 Audio file size: {os.path.getsize(temp_audio)} bytes")
             final_video = final_video.set_audio(audio)
         except Exception as e:
             print(f"❗ Audio Error: {e}")
