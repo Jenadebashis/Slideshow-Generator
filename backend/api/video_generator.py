@@ -587,8 +587,10 @@ def generate_video(
             print(f"📁 Looped audio created at: {temp_audio}")
 
             audio = AudioFileClip(ffmpeg_safe_path(temp_audio))
+            audio = audio.subclip(0, final_video.duration)
             print(f"✅ Audio file exists: {os.path.exists(temp_audio)}")
             print(f"📏 Audio file size: {os.path.getsize(temp_audio)} bytes")
+            print(f"📏 Final durations — Video: {final_video.duration:.2f}s | Audio: {audio.duration:.2f}s")
             final_video = final_video.set_audio(audio)
         except Exception as e:
             print(f"❗ Audio Error: {e}")
@@ -612,7 +614,4 @@ def generate_video(
                 pass
         del final_video
         gc.collect()
-        
-        if temp_audio and os.path.exists(temp_audio):
-            os.remove(temp_audio)
 
